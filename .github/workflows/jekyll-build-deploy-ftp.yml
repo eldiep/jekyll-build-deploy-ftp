@@ -1,0 +1,50 @@
+# Workflow for building and deploying a jekyll-site to an ftp-server
+name: Build and Deploy (dev)
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@ee2113536afb7f793eed4ce60e8d3b26db912da4 # v1.127.0
+        with:
+          ruby-version: '3.0' 
+          bundler-cache: true # runs 'bundle install' and caches installed gems automatically
+          cache-version: 0 # Increment this number if you need to re-download cached gems
+      - name: Build Jekyll
+        run: bundle exec jekyll build
+        env:
+          JEKYLL_ENV: production
+          
+      - name: upload-artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: _site
+          path: ./_site/
+       
+  deploy-via-ftp:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download a Build Artifact
+        uses: actions/download-artifact@v3.0.1
+        with:
+          name: _site
+          path: ./_site/      
+          
+      - name: FTP Deploy
+        uses: SamKirkland/FTP-Deploy-Action@4.3.3
+        with:
+          username: ${{ secrets.SFTP_USERNAME }}
+          server: ${{ secrets.SFTP_SERVER }}
+          protocol: ftps # Change if ftps is not supported
+          password: ${{ secrets.SFTP_PASSWORD }}
+          local-dir: ./_site/
+          server-dir: ./httpdocs/
